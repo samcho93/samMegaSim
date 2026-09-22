@@ -1,106 +1,10 @@
 // Example projects (schematic built programmatically + C source)
-import { LIB, partPins } from './parts/kit.js';
+import { Builder, devices, mcuWithPower, ledRight } from './examples-lib.js';
 import { M128_EXAMPLES } from './examples-m128.js';
+import { ADV_EXAMPLES } from './examples-adv.js';
 
-export class Builder {
-  constructor() { this.parts = []; this.wires = []; this.n = 0; this.refs = {}; }
-  add(type, x, y, props = {}, o = {}) {
-    const def = LIB[type];
-    const p = { id: `p${++this.n}`, type, x, y, rot: o.rot || 0, mirror: !!o.mirror, ref: '', props: {} };
-    for (const pr of def.props || []) p.props[pr.key] = pr.default;
-    Object.assign(p.props, props);
-    const pre = def.prefix || 'U';
-    this.refs[pre] = (this.refs[pre] || 0) + 1;
-    p.ref = pre + (pre.startsWith('#') ? String(this.refs[pre]).padStart(2, '0') : this.refs[pre]);
-    this.parts.push(p);
-    return p;
-  }
-  pin(p, id) {
-    const q = partPins(p).find((x) => x.id === String(id));
-    if (!q) throw new Error(`pin ${id} not found on ${p.type}`);
-    return [q.wx, q.wy];
-  }
-  /** Pin tip of an MCU by port name, e.g. 'PB5' */
-  mpin(mcu, name) {
-    const dev = mcu._dev;
-    const row = dev.pins.find((r) => r[1] === name);
-    return this.pin(mcu, row[0]);
-  }
-  wire(...pts) { this.wires.push({ id: `w${++this.n}`, points: pts.map((p) => [p[0], p[1]]) }); }
-  /** L-shaped connection: horizontal first ('h') or vertical first ('v') */
-  link(a, b, first = 'h') {
-    if (a[0] === b[0] || a[1] === b[1]) this.wire(a, b);
-    else this.wire(a, first === 'h' ? [b[0], a[1]] : [a[0], b[1]], b);
-  }
-  /** Z-shaped connection with a vertical segment at x */
-  linkX(a, b, x) { this.wire(a, [x, a[1]], [x, b[1]], b); }
-  /** Net label with a stub wire; dir = side the label extends to */
-  label(at, name, dir = 'R', stub = 20) {
-    const d = { R: [1, 0], L: [-1, 0], U: [0, -1], D: [0, 1] }[dir];
-    const end = [at[0] + d[0] * stub, at[1] + d[1] * stub];
-    if (stub) this.wire(at, end);
-    const o = { R: {}, L: { mirror: true }, D: { rot: 1 }, U: { rot: 3 } }[dir];
-    this.add('label', end[0], end[1], { name }, o);
-  }
-  gnd(at, stub = 0) {
-    const g = [at[0], at[1] + stub];
-    if (stub) this.wire(at, g);
-    this.add('gnd', g[0], g[1]);
-  }
-  vcc(at, stub = 0) {
-    const g = [at[0], at[1] - stub];
-    if (stub) this.wire(at, g);
-    this.add('vcc', g[0], g[1]);
-  }
-  /** Power symbol at a point, rotated (rot 1/3 = pointing right/left for GND/VCC) */
-  power(type, at, rot = 0) { return this.add(type, at[0], at[1], {}, { rot }); }
-  /** Oscilloscope with preset time/div (seconds) */
-  scope(x, y, tdiv, level = 2.5) {
-    const osc = this.add('scope', x, y);
-    osc.props.cfg = {
-      tdiv, run: true,
-      ch: [{ on: true, vdiv: 2, pos: 1 }, { on: true, vdiv: 2, pos: -1 }, { on: true, vdiv: 2, pos: -3 }, { on: true, vdiv: 2, pos: -4 }],
-      trig: { src: 0, edge: 'rise', level, mode: 'auto' },
-    };
-    return osc;
-  }
-  mcu(device, x, y, clock = '16MHz') {
-    const m = this.add('mcu', x, y, { device, clock });
-    m._dev = null;
-    return m;
-  }
-  done() {
-    for (const p of this.parts) delete p._dev;
-    return { parts: this.parts, wires: this.wires };
-  }
-}
+export { Builder, devices, mcuWithPower, ledRight };
 
-export async function devices() { return (await import('./mcu/devices.js')).DEVICES; }
-
-export function mcuWithPower(b, DEV, device, x, y, clock) {
-  const m = b.mcu(device, x, y, clock);
-  m._dev = DEV[device];
-  // power pins
-  for (const row of DEV[device].pins) {
-    if (row[1] === 'VCC' || row[1] === 'AVCC') b.vcc(b.pin(m, row[0]), 10);
-    if (row[1] === 'GND') b.gnd(b.pin(m, row[0]), 10);
-  }
-  return m;
-}
-
-/** LED + series resistor from a pin going right, cathode to GND */
-export function ledRight(b, from, color = 'red', r = '330', len = 40) {
-  const R = b.add('resistor', from[0] + len + 30, from[1], { value: r }, { rot: 1 });
-  b.wire(from, b.pin(R, '2'));
-  const L = b.add('led', b.pin(R, '1')[0] + 40, from[1], { color });
-  b.wire(b.pin(R, '1'), b.pin(L, 'A'));
-  const k = b.pin(L, 'K');
-  b.wire(k, [k[0] + 20, k[1]]);
-  b.gnd([k[0] + 20, k[1]], 20);
-  return { R, L };
-}
-
-// ---------------------------------------------------------------------------
 export const EXAMPLES = [
   {
     id: 'blink', name: 'LED 깜빡이기 (Blink)', device: 'atmega328p',
@@ -823,14 +727,20 @@ int main(void)
 `,
   },
   ...M128_EXAMPLES,
+  ...ADV_EXAMPLES,
 ];
 
 export async function buildExample(ex) {
-  const { parts, wires } = await ex.build();
+  const { parts, wires, roles } = await ex.build();
+  const sheet = ex.sheet || (parts.some((p) => p.props.device === 'atmega2560') ? 'A3' : 'A4');
+  // multi-MCU projects: one source file per MCU role
+  const files = ex.files
+    ? ex.files.map((f) => ({ name: f.name, content: f.code, target: roles[f.role] }))
+    : [{ name: 'main.c', content: ex.code }];
   return {
     version: 1,
-    meta: { title: ex.name, author: 'samMegaSim', sheet: parts.some((p) => p.props.device === 'atmega2560') ? 'A3' : 'A4', rev: '1.0', date: new Date().toISOString().slice(0, 10) },
-    parts, wires,
-    code: { files: [{ name: 'main.c', content: ex.code }], opt: '-Os' },
+    meta: { title: ex.name, author: 'samMegaSim', sheet, rev: '1.0', date: new Date().toISOString().slice(0, 10) },
+    parts, wires, roles,
+    code: { files, opt: '-Os', target: files[0].target },
   };
 }

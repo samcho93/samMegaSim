@@ -12,7 +12,7 @@ KiCad 스타일의 회로도 시트에 ATmega MCU와 각종 전자 부품을 회
 - **ATmega MCU** — 회로도 심볼 형태(핀 번호 + 기능명)로 자동 생성
   - ATmega8, ATmega16, ATmega32, ATmega128, ATmega168, ATmega328P, ATmega644P, ATmega1284P, ATmega2560
   - GPIO, 외부/핀 변화 인터럽트, Timer0~5 (PWM 포함, 구형 TCCRn 레지스터 매핑), USART, ADC(자유 실행 포함), SPI(비트 단위 파형), TWI(I2C), EEPROM
-- **C 코드 에디터** (CodeMirror) — 여러 .c/.h 파일, 오류 줄 표시, 오류 클릭 시 해당 줄 이동
+- **C 코드 에디터** (CodeMirror) — 여러 .c/.h 파일, 오류 줄 표시, 오류 클릭 시 해당 줄 이동, MCU별 전용 소스 파일(여러 MCU 프로젝트)
 - **WinAVR 컴파일러 플러그인** — 로컬 브리지(`bridge/samMegaSim-bridge.cmd`)가 avr-gcc를 실행. WinAVR가 없으면 브리지가 SourceForge에서 내려받아 설치
 - **회로 시뮬레이션** — 이벤트 구동 MNA 해석기(저항 분압, LED 전류/밝기, 트랜지스터, MOSFET, 다이오드, 커패시터 과도응답, 풀업 등)
 - **부품** — 저항, 커패시터, 인덕터, 가변저항, LDR, 크리스탈, 다이오드, 제너, LED(색상별), RGB LED, NPN/PNP, N/P-MOSFET, 푸시버튼, 토글/SPDT/DIP 스위치, 4x4 키패드, 릴레이, 부저(소리), DC 모터, 서보, LM35, HC-SR04, 7세그먼트(1/4자리), LED 바, 8x8 도트 매트릭스, HD44780 LCD(16x2/20x4), 74HC595, 74HC138, 논리 게이트, 24Cxx EEPROM, DS1307 RTC, PCF8574, I2C LCD
@@ -20,6 +20,7 @@ KiCad 스타일의 회로도 시트에 ATmega MCU와 각종 전자 부품을 회
 - **예제 프로젝트** (사전 빌드된 HEX 포함)
   - ATmega328P: Blink, 외부 인터럽트, PWM, ADC+UART, LCD, 7세그먼트, 서보, 74HC595(SPI), DC 모터, I2C LCD + DS1307
   - ATmega128: LED 시프트 + UART 에코, 외부 인터럽트 카운터(INT4/5), 4자리 FND 스톱워치(Timer0 CTC), ADC + LCD(가변저항/LM35), PWM + LED 레벨미터(ADC 자유 실행), 부저 멜로디(Timer1 CTC), 4x4 키패드 스캔, 서보(Timer3 PWM), USART1 명령 LED 제어
+  - 종합 시스템 (3개 이상 복합 장치): 온도 경보 & 팬 제어(LM35·LCD·릴레이+모터·부저), 디지털 도어락(키패드·I2C LCD·서보·부저), 보행자 신호등(LED·버튼·74HC595+FND·부저), I2C 데이터 로거(DS1307·24C02·I2C LCD·LDR·터미널), 두 MCU UART 통신(328P↔128·LCD·서보·터미널), 주차 보조 & 스마트 조명(ATmega2560·HC-SR04·LDR·I2C LCD·LED 바·부저)
 
 ## 화면 구성
 

@@ -163,7 +163,8 @@ class App {
     let h = `<button class="ctab${this.centerTab === 'schematic' ? ' active' : ''}" data-ctab="schematic">📐 회로도</button>`;
     for (const f of this.doc.code.files) {
       const errs = (this.diags || []).some((d) => d.file === f.name && d.kind === 'error');
-      h += `<button class="ctab${this.centerTab === f.name ? ' active' : ''}" data-ctab="${esc(f.name)}">📄 ${esc(f.name)}${errs ? '<span class="err-dot"></span>' : ''}</button>`;
+      const owner = f.target ? this.doc.parts.find((p) => p.id === f.target) : null;
+      h += `<button class="ctab${this.centerTab === f.name ? ' active' : ''}" data-ctab="${esc(f.name)}" title="${owner ? esc(owner.ref) + ' 전용 소스' : '공통 소스'}">📄 ${esc(f.name)}${owner ? ` <span style="color:var(--fg2)">(${esc(owner.ref)})</span>` : ''}${errs ? '<span class="err-dot"></span>' : ''}</button>`;
     }
     host.innerHTML = h;
     for (const b of $$('[data-ctab]', host)) b.onclick = () => (b.dataset.ctab === 'schematic' ? this.showSchematic() : this.showCodeTab(b.dataset.ctab));
@@ -182,6 +183,8 @@ class App {
     $('#schematicView').classList.add('hidden');
     $('#codeView').classList.remove('hidden');
     this._fillBuildTarget();
+    const file = this.doc.code.files.find((f) => f.name === name);
+    if (file.target && this.doc.parts.some((p) => p.id === file.target)) { this.doc.code.target = file.target; this._fillBuildTarget(); }
     this.code.show(name);
     this.renderCenterTabs();
     this.code.refresh();
@@ -717,10 +720,12 @@ class App {
     // group examples by MCU
     const groups = new Map();
     EXAMPLES.forEach((ex, i) => {
-      if (!groups.has(ex.device)) groups.set(ex.device, []);
-      groups.get(ex.device).push(`<button data-ex="${i}"><span>${esc(ex.name.replace(/^ATmega\d+\w*\s+/, ''))}</span></button>`);
+      const g = ex.group || `${DEVICES[ex.device].name} 예제`;
+      if (!groups.has(g)) groups.set(g, []);
+      const label = ex.name.replace(/^ATmega\d+\w*\s+/, '').replace(/^\[종합\]\s*/, '');
+      groups.get(g).push(`<button data-ex="${i}"><span>${esc(label)}</span></button>`);
     });
-    host.innerHTML = [...groups].map(([dev, items]) => `<div class="grp">${esc(DEVICES[dev].name)} 예제</div>${items.join('')}`).join('');
+    host.innerHTML = [...groups].map(([g, items]) => `<div class="grp">${esc(g)}</div>${items.join('')}`).join('');
     for (const b of $$('[data-ex]', host)) {
       b.title = EXAMPLES[+b.dataset.ex].desc;
       b.onclick = async () => {
@@ -734,10 +739,16 @@ class App {
   async openExample(ex, notify = true) {
     const doc = await buildExample(ex);
     const hex = EXAMPLE_HEX[ex.id];
-    const mcu = doc.parts.find((p) => p.type === 'mcu');
-    if (hex && mcu) {
-      mcu.fw = { name: 'main.hex (예제 사전 빌드)', hex, size: parseIntelHex(hex).maxAddr, time: 'WinAVR 20100110' };
-      doc.code.target = mcu.id;
+    const fwOf = (h, name) => ({ name: `${name} (예제 사전 빌드)`, hex: h, size: parseIntelHex(h).maxAddr, time: 'WinAVR 20100110' });
+    if (hex && typeof hex === 'object') {
+      // multi-MCU example: one firmware per role
+      for (const f of ex.files) {
+        const part = doc.parts.find((p) => p.id === doc.roles[f.role]);
+        if (part && hex[f.role]) part.fw = fwOf(hex[f.role], f.name.replace(/\.c$/, '.hex'));
+      }
+    } else {
+      const mcu = doc.parts.find((p) => p.type === 'mcu');
+      if (hex && mcu) { mcu.fw = fwOf(hex, 'main.hex'); doc.code.target = mcu.id; }
     }
     this.loadDoc(doc, null);
     if (notify) {
@@ -790,7 +801,8 @@ class App {
     try {
       const res = await this.bridge.compile({
         mcu: dev.gccMcu, fcpu, opt: this.doc.code.opt || '-Os', printfFloat: !!this.doc.code.printfFloat,
-        files: this.doc.code.files.map((f) => ({ name: f.name, content: f.content })),
+        // files bound to another MCU (multi-MCU projects) are excluded
+        files: this.doc.code.files.filter((f) => !f.target || f.target === target.id || !this.doc.parts.some((p) => p.id === f.target)).map((f) => ({ name: f.name, content: f.content })),
       });
       if (res.cmd) this.log(res.cmd, 'cmd');
       const diags = parseDiagnostics(res.log);

@@ -747,7 +747,7 @@ register({
     s.pin('COM', 30, 30, 'U', 12).pin('NO', 20, -30, 'D', 14).pin('NC', 40, -30, 'D', 14);
     s.line(-22, 0, 10, 0, 'sl dash');
     s.circle(20, -14, 2, 'sl').circle(40, -14, 2, 'sl').circle(30, 16, 2, 'sl');
-    return s.ref(-40, -38).val(-40, 42).build();
+    return s.ref(46, -4).val(46, 8).build();
   },
   valueText: () => 'RELAY',
   dyn(part, inst) {

@@ -1,61 +1,7 @@
 // ATmega128 example projects (typical ATmega128 training-kit labs)
-import { Builder, devices, mcuWithPower } from './examples.js';
+import { Builder, devices, mcuWithPower, barLeft, ledLeft, buttonRight, scopeLeftBelow, pa } from './examples-lib.js';
 
 const DEVICE = 'atmega128';
-
-/** 8 pins on the LEFT side of the MCU -> 8x resistor array -> LED bar graph (mirrored, cathodes to GND) */
-function barLeft(b, froms, color = 'green', r = '330') {
-  const X = froms[0][0], y0 = froms[0][1];
-  const rn = b.add('resarray', X - 160, y0 - 50, { value: r }, { mirror: true });
-  froms.forEach((f, i) => {
-    const to = b.pin(rn, String(i + 1));
-    const xi = X - 30 - 10 * i;
-    b.wire(f, [xi, f[1]], [xi, to[1]], to);
-  });
-  const bar = b.add('bargraph', rn.x - 90, rn.y, { color }, { mirror: true });
-  for (let i = 0; i < 8; i++) {
-    b.wire(b.pin(rn, String(16 - i)), b.pin(bar, 'A' + (i + 1)));
-    const k = b.pin(bar, 'K' + (i + 1));
-    b.wire(k, [k[0] - 20, k[1]]);
-  }
-  const k1 = b.pin(bar, 'K1'), k8 = b.pin(bar, 'K8');
-  b.wire([k1[0] - 20, k1[1]], [k8[0] - 20, k8[1]], [k8[0] - 20, k8[1] + 40]);
-  b.gnd([k8[0] - 20, k8[1] + 40]);
-  return { rn, bar };
-}
-
-/** Single LED + resistor from a LEFT-side pin */
-function ledLeft(b, from, color = 'red', r = '330') {
-  const R = b.add('resistor', from[0] - 70, from[1], { value: r }, { rot: 1 });
-  b.wire(from, b.pin(R, '1'));
-  const L = b.add('led', b.pin(R, '2')[0] - 40, from[1], { color }, { rot: 2 });
-  b.wire(b.pin(R, '2'), b.pin(L, 'A'));
-  const k = b.pin(L, 'K');
-  b.wire(k, [k[0] - 20, k[1]]);
-  b.power('gnd', [k[0] - 20, k[1]], 1);
-  return { R, L };
-}
-
-/** Push button from a RIGHT-side pin to GND */
-function buttonRight(b, from, dx = 80) {
-  const sw = b.add('button', from[0] + dx, from[1]);
-  b.wire(from, b.pin(sw, '1'));
-  const s2 = b.pin(sw, '2');
-  b.wire(s2, [s2[0] + 20, s2[1]]);
-  b.gnd([s2[0] + 20, s2[1]], 20);
-  return sw;
-}
-
-/** Oscilloscope below-left of a LEFT-side pin wire, channel A tapped at 20 units from the pin */
-function scopeLeftBelow(b, from, tdiv) {
-  const osc = b.scope(from[0] - 250, from[1] + 120, tdiv);
-  osc.mirror = true;
-  const a = b.pin(osc, 'A');
-  b.wire([from[0] - 20, from[1]], [from[0] - 20, a[1]], a);
-  return osc;
-}
-
-function pa(b, m) { return Array.from({ length: 8 }, (_, i) => b.mpin(m, 'PA' + i)); }
 
 const UART0_INIT = `static int uart_putchar(char c, FILE *s)
 {
