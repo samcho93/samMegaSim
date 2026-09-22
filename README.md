@@ -17,7 +17,9 @@ KiCad 스타일의 회로도 시트에 ATmega MCU와 각종 전자 부품을 회
 - **회로 시뮬레이션** — 이벤트 구동 MNA 해석기(저항 분압, LED 전류/밝기, 트랜지스터, MOSFET, 다이오드, 커패시터 과도응답, 풀업 등)
 - **부품** — 저항, 커패시터, 인덕터, 가변저항, LDR, 크리스탈, 다이오드, 제너, LED(색상별), RGB LED, NPN/PNP, N/P-MOSFET, 푸시버튼, 토글/SPDT/DIP 스위치, 4x4 키패드, 릴레이, 부저(소리), DC 모터, 서보, LM35, HC-SR04, 7세그먼트(1/4자리), LED 바, 8x8 도트 매트릭스, HD44780 LCD(16x2/20x4), 74HC595, 74HC138, 논리 게이트, 24Cxx EEPROM, DS1307 RTC, PCF8574, I2C LCD
 - **가상 계측기** — 4채널 오실로스코프(트리거/측정/커서), 8채널 로직 분석기, UART 가상 터미널(비트 단위 디코딩, 보레이트 불일치 재현), DC 전압계/전류계, 전압 프로브, Logic State/Probe
-- **예제 프로젝트** — Blink, 외부 인터럽트, PWM, ADC+UART, LCD, 7세그먼트, ATmega128 UART, 서보, 74HC595(SPI), DC 모터, I2C LCD + DS1307 (사전 빌드된 HEX 포함)
+- **예제 프로젝트** (사전 빌드된 HEX 포함)
+  - ATmega328P: Blink, 외부 인터럽트, PWM, ADC+UART, LCD, 7세그먼트, 서보, 74HC595(SPI), DC 모터, I2C LCD + DS1307
+  - ATmega128: LED 시프트 + UART 에코, 외부 인터럽트 카운터(INT4/5), 4자리 FND 스톱워치(Timer0 CTC), ADC + LCD(가변저항/LM35), PWM + LED 레벨미터(ADC 자유 실행), 부저 멜로디(Timer1 CTC), 4x4 키패드 스캔, 서보(Timer3 PWM), USART1 명령 LED 제어
 
 ## 화면 구성
 

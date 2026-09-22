@@ -1,7 +1,8 @@
 // Example projects (schematic built programmatically + C source)
 import { LIB, partPins } from './parts/kit.js';
+import { M128_EXAMPLES } from './examples-m128.js';
 
-class Builder {
+export class Builder {
   constructor() { this.parts = []; this.wires = []; this.n = 0; this.refs = {}; }
   add(type, x, y, props = {}, o = {}) {
     const def = LIB[type];
@@ -74,9 +75,9 @@ class Builder {
   }
 }
 
-async function devices() { return (await import('./mcu/devices.js')).DEVICES; }
+export async function devices() { return (await import('./mcu/devices.js')).DEVICES; }
 
-function mcuWithPower(b, DEV, device, x, y, clock) {
+export function mcuWithPower(b, DEV, device, x, y, clock) {
   const m = b.mcu(device, x, y, clock);
   m._dev = DEV[device];
   // power pins
@@ -88,7 +89,7 @@ function mcuWithPower(b, DEV, device, x, y, clock) {
 }
 
 /** LED + series resistor from a pin going right, cathode to GND */
-function ledRight(b, from, color = 'red', r = '330', len = 40) {
+export function ledRight(b, from, color = 'red', r = '330', len = 40) {
   const R = b.add('resistor', from[0] + len + 30, from[1], { value: r }, { rot: 1 });
   b.wire(from, b.pin(R, '2'));
   const L = b.add('led', b.pin(R, '1')[0] + 40, from[1], { color });
@@ -821,6 +822,7 @@ int main(void)
 }
 `,
   },
+  ...M128_EXAMPLES,
 ];
 
 export async function buildExample(ex) {

@@ -45,6 +45,16 @@ for (const ex of EXAMPLES) {
     sim.runUntil(f / 60, 1e9); sim.frame(1 / 60); dur = f / 60;
     // type into every virtual terminal once the firmware is up
     if (f === 30) for (const inst of sim.instruments) if (inst.kind === 'terminal') inst.send([...Buffer.from('hi sim'), 13]);
+    // press the first push button and keypad key "6" for ~80 ms
+    if (f === 20 || f === 25) {
+      const phase = f === 20 ? 'down' : 'up';
+      for (const p of doc.parts) {
+        const inst = sim.instances.get(p.id);
+        if (p.type === 'button' && p === doc.parts.find((q) => q.type === 'button')) inst.action('press', phase, {});
+        if (p.type === 'keypad') inst.action('k6', phase, {});
+      }
+      sim.solveAt(sim.time);
+    }
   }
   const ms = Date.now() - t0;
   const extra = [];

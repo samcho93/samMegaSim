@@ -714,8 +714,13 @@ class App {
   // ---------------------------------------------------------------------------
   _buildExamplesMenu() {
     const host = $('#examplesMenu');
-    host.innerHTML = '<div class="grp">예제 프로젝트</div>' + EXAMPLES.map((ex, i) =>
-      `<button data-ex="${i}"><span>${esc(ex.name)}</span><span class="ex-desc">${esc(DEVICES[ex.device].name)}</span></button>`).join('');
+    // group examples by MCU
+    const groups = new Map();
+    EXAMPLES.forEach((ex, i) => {
+      if (!groups.has(ex.device)) groups.set(ex.device, []);
+      groups.get(ex.device).push(`<button data-ex="${i}"><span>${esc(ex.name.replace(/^ATmega\d+\w*\s+/, ''))}</span></button>`);
+    });
+    host.innerHTML = [...groups].map(([dev, items]) => `<div class="grp">${esc(DEVICES[dev].name)} 예제</div>${items.join('')}`).join('');
     for (const b of $$('[data-ex]', host)) {
       b.title = EXAMPLES[+b.dataset.ex].desc;
       b.onclick = async () => {
