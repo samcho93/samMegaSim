@@ -1,6 +1,6 @@
 // samMegaSim — main application controller
 import './parts/index.js';
-import { LIB, partPins, esc } from './parts/kit.js';
+import { LIB, partPins, esc, xdir } from './parts/kit.js';
 import { DEVICES, getDevice } from './mcu/devices.js';
 import { SchematicEditor, SHEETS } from './editor/schematic.js';
 import { Simulator } from './sim/simulator.js';
@@ -456,15 +456,37 @@ class App {
     this.editor.checkpoint();
     if (res.__ref != null) { part.ref = res.__ref.trim() || part.ref; delete res.__ref; }
     const devChanged = isMcu && res.device !== part.props.device;
+    const before = partPins(part);
     Object.assign(part.props, res);
     if (devChanged && part.fw) { delete part.fw; toast('MCU 종류가 변경되어 펌웨어를 제거했습니다. 다시 빌드하세요.', 'warn'); }
-    if (devChanged) this._reattachAfterSymbolChange(part);
+    this._reattachAfterSymbolChange(part, before, partPins(part));
     this.editor.changed();
   }
 
-  /** When a symbol's pin layout changes (e.g. other MCU), drop wires whose ends no longer hit a pin */
-  _reattachAfterSymbolChange() {
-    // Wires stay as they are; the user can re-route. Nothing else to do.
+  /** When a symbol's pinout changes (e.g. another MCU), keep wires attached to pins with the same function */
+  _reattachAfterSymbolChange(part, before, after) {
+    const keyed = (pins) => {
+      const seen = {};
+      const m = new Map();
+      for (const p of pins) {
+        const nm = p.fn || p.name;
+        const n = seen[nm] = (seen[nm] || 0) + 1;
+        m.set(`${nm}#${n}`, p);
+      }
+      return m;
+    };
+    const a = keyed(after);
+    const moves = [];
+    for (const [k, p] of keyed(before)) {
+      const q = a.get(k);
+      const nm = p.fn || p.name;
+      if (/^(VCC|AVCC|GND)$/.test(nm)) continue; // MCU supply pins are powered implicitly
+      if (q && (q.wx !== p.wx || q.wy !== p.wy)) {
+        const lo = { R: [-1, 0], L: [1, 0], D: [0, -1], U: [0, 1] }[q.side] || [1, 0];
+        moves.push({ from: [p.wx, p.wy], to: [q.wx, q.wy], name: nm, out: xdir(part, lo[0], lo[1]), sameSide: p.side === q.side });
+      }
+    }
+    if (moves.length) this.editor.moveWireEnds(moves);
   }
 
   annotate() {

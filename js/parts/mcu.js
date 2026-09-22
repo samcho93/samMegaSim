@@ -63,12 +63,12 @@ function buildMcuSymbol(device) {
   const s = new Sym();
   s.rect(-W / 2, -H / 2, W, H, 'sb');
   const PL = 30;
-  const opt = (row) => ({ name: label(row), showName: true, num: row[0], showNum: true, nameSize: 8 });
+  const opt = (row) => ({ name: label(row), fn: row[1], showName: true, num: row[0], showNum: true, nameSize: 8 });
   left.forEach((row, i) => { if (row) s.pin(String(row[0]), -W / 2 - PL, -H / 2 + 20 * (i + 1), 'R', PL, opt(row)); });
   right.forEach((row, i) => { if (row) s.pin(String(row[0]), W / 2 + PL, -H / 2 + 20 * (i + 1), 'L', PL, opt(row)); });
   const place = (rows, y, side) => {
     const x0 = -((rows.length - 1) * 20) / 2;
-    rows.forEach((row, i) => s.pin(String(row[0]), x0 + i * 20, y, side, PL, { name: row[1], showName: true, num: row[0], showNum: true, nameSize: 8 }));
+    rows.forEach((row, i) => s.pin(String(row[0]), x0 + i * 20, y, side, PL, { name: row[1], fn: row[1], showName: true, num: row[0], showNum: true, nameSize: 8 }));
   };
   place(top, -H / 2 - PL, 'D');
   place(bottom, H / 2 + PL, 'U');

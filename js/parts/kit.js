@@ -135,7 +135,7 @@ export class Sym {
       if (horizontal) this.text(mx, my - 3.5, opts.num, { a: 'middle', size: 7, cls: 'pnum' });
       else this.text(mx - 3.5, my, opts.num, { a: 'middle', size: 7, cls: 'pnum', dir: [0, -1] });
     }
-    this.pins.push({ id: String(id), name: opts.name || String(id), num: opts.num, x, y, side, len });
+    this.pins.push({ id: String(id), name: opts.name || String(id), fn: opts.fn, num: opts.num, x, y, side, len });
     return this;
   }
   ref(x, y, a = 'start') { this.refPos = { x, y, a }; return this; }

@@ -362,3 +362,6 @@ select:focus, .inp:focus { border-color: var(--acc2); }
   :root { --left-w: 200px; --right-w: 300px; }
   .brand span { display: none; }
 }
+
+.modal a:not(.btn), .note a:not(.btn), .log a:not(.jump) { color: #8fbaff; }
+.modal a:not(.btn):hover { color: #b9d3ff; }

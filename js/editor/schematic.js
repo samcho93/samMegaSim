@@ -467,6 +467,64 @@ export class SchematicEditor {
     }
   }
 
+  /**
+   * Re-attach wire ends after a symbol's pinout changed.
+   * moves = [{from:[x,y], to:[x,y], name, sameSide, side}]
+   * Wires are rubber-banded when that is safe; otherwise matching net labels keep the connection.
+   */
+  moveWireEnds(moves) {
+    const key = (p) => `${p[0]},${p[1]}`;
+    const map = new Map(moves.map((m) => [key(m.from), m]));
+    const tips = new Set();
+    for (const p of this.doc.parts) for (const q of partPins(p)) tips.add(`${q.wx},${q.wy}`);
+    const touchesOtherPin = (pts) => {
+      for (let i = 0; i + 1 < pts.length; i++) {
+        const [ax, ay] = pts[i], [bx, by] = pts[i + 1];
+        for (const t of tips) {
+          const [x, y] = t.split(',').map(Number);
+          const isEnd = (x === pts[0][0] && y === pts[0][1]) || (x === pts[pts.length - 1][0] && y === pts[pts.length - 1][1]);
+          if (!isEnd && onSegment(x, y, ax, ay, bx, by)) return true;
+        }
+      }
+      return false;
+    };
+    // label orientation so that the flag extends along direction d
+    const orient = (d) => (d[0] > 0 ? {} : d[0] < 0 ? { mirror: true } : d[1] > 0 ? { rot: 1 } : { rot: 3 });
+    const addLabel = (x, y, name, o) => {
+      const lp = this.makePart('label', { name });
+      Object.assign(lp, { x, y, rot: o.rot || 0, mirror: !!o.mirror, ref: this.nextRef('#LBL') });
+      this.doc.parts.push(lp);
+    };
+    const labelled = new Set();
+    for (const w of this.doc.wires) {
+      for (const endIdx of [0, 1]) {
+        const i = endIdx === 0 ? 0 : w.points.length - 1;
+        const m = map.get(key(w.points[i]));
+        if (!m) continue;
+        const moved = dragEndpoint(w.points, endIdx, m.to[0] - m.from[0], m.to[1] - m.from[1]);
+        if (m.sameSide && !touchesOtherPin(moved)) { w.points = moved; continue; }
+        // keep the wire where it is and connect it to the new pin position with a net label pair
+        const prev = w.points[endIdx === 0 ? 1 : w.points.length - 2];
+        let end = w.points[i];
+        const dx = Math.sign(end[0] - prev[0]), dy = Math.sign(end[1] - prev[1]);
+        // pull the loose end back from the (new) symbol so it cannot touch another pin
+        const segLen = Math.abs(end[0] - prev[0]) + Math.abs(end[1] - prev[1]);
+        if (segLen > 20) {
+          end = [end[0] - dx * 20, end[1] - dy * 20];
+          w.points[i] = end;
+        }
+        addLabel(end[0], end[1], m.name, orient([-dx, -dy]));
+        if (!labelled.has(m.name)) {
+          labelled.add(m.name);
+          const d = m.out || [1, 0];
+          const stubEnd = [m.to[0] + d[0] * 20, m.to[1] + d[1] * 20];
+          this.doc.wires.push({ id: 'w' + uid(), points: [m.to, stubEnd] });
+          addLabel(stubEnd[0], stubEnd[1], m.name, orient(d));
+        }
+      }
+    }
+  }
+
   copy() {
     const parts = this.doc.parts.filter((p) => this.sel.has(p.id));
     const wires = this.doc.wires.filter((w) => this.sel.has(w.id));
@@ -806,7 +864,18 @@ export class SchematicEditor {
   _onDbl(e) {
     if (this.app.isSimRunning()) return;
     if (this.mode === 'wire') { this.finishWire(); return; }
-    const g = e.target.closest?.('.part');
-    if (g) this.app.editPart(this.findPart(g.dataset.id));
+    // the DOM may have been re-rendered by the first click, so hit-test geometrically
+    const part = this.partAt(...this.toWorld(e));
+    if (part) this.app.editPart(part);
+  }
+
+  /** Topmost part whose bounding box contains the world point */
+  partAt(x, y) {
+    for (let i = this.doc.parts.length - 1; i >= 0; i--) {
+      const p = this.doc.parts[i];
+      const b = partBBox(p);
+      if (x >= b[0] && x <= b[2] && y >= b[1] && y <= b[3]) return p;
+    }
+    return null;
   }
 }
