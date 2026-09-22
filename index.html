@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>samMegaSim — ATmega 회로 시뮬레이터</title>
+<meta name="description" content="웹 기반 ATmega 마이크로컨트롤러 회로도 작성 및 시뮬레이션 (WinAVR 컴파일러 연동)">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='6' y='6' width='20' height='20' rx='2' fill='%23234'/%3E%3Cg stroke='%23f90' stroke-width='2'%3E%3Cpath d='M10 2v4M16 2v4M22 2v4M10 26v4M16 26v4M22 26v4M2 10h4M2 16h4M2 22h4M26 10h4M26 16h4M26 22h4'/%3E%3C/g%3E%3Ctext x='16' y='20' font-size='10' text-anchor='middle' fill='%23fff' font-family='Arial' font-weight='bold'%3EAVR%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/material-darker.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/dialog/dialog.min.css">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div id="app">
+  <!-- ======================= Top bar ======================= -->
+  <header id="topbar">
+    <div class="brand" title="samMegaSim">
+      <svg viewBox="0 0 32 32" width="22" height="22"><rect x="6" y="6" width="20" height="20" rx="2" fill="#2b3a4a"/><g stroke="#ff9a1f" stroke-width="2"><path d="M10 2v4M16 2v4M22 2v4M10 26v4M16 26v4M22 26v4M2 10h4M2 16h4M2 22h4M26 10h4M26 16h4M26 22h4"/></g></svg>
+      <span>sam<b>Mega</b>Sim</span>
+    </div>
+    <nav class="menubar">
+      <div class="menu" data-menu="file"><button>파일</button>
+        <div class="dropdown">
+          <button data-cmd="new">새 프로젝트<kbd>Ctrl+N</kbd></button>
+          <button data-cmd="open">프로젝트 열기…<kbd>Ctrl+O</kbd></button>
+          <button data-cmd="save">프로젝트 저장 (.sms)<kbd>Ctrl+S</kbd></button>
+          <hr>
+          <button data-cmd="exportSvg">회로도 SVG 내보내기</button>
+          <button data-cmd="exportPng">회로도 PNG 내보내기</button>
+          <button data-cmd="exportHex">펌웨어 HEX 내보내기</button>
+          <button data-cmd="loadHex">HEX 파일을 MCU에 로드…</button>
+          <hr>
+          <button data-cmd="sheetProps">시트 설정 (제목/크기)…</button>
+        </div>
+      </div>
+      <div class="menu" data-menu="edit"><button>편집</button>
+        <div class="dropdown">
+          <button data-cmd="undo">실행 취소<kbd>Ctrl+Z</kbd></button>
+          <button data-cmd="redo">다시 실행<kbd>Ctrl+Y</kbd></button>
+          <hr>
+          <button data-cmd="cut">잘라내기<kbd>Ctrl+X</kbd></button>
+          <button data-cmd="copy">복사<kbd>Ctrl+C</kbd></button>
+          <button data-cmd="paste">붙여넣기<kbd>Ctrl+V</kbd></button>
+          <button data-cmd="duplicate">복제<kbd>Ctrl+D</kbd></button>
+          <button data-cmd="delete">삭제<kbd>Del</kbd></button>
+          <button data-cmd="selectAll">모두 선택<kbd>Ctrl+A</kbd></button>
+          <hr>
+          <button data-cmd="rotate">회전<kbd>R</kbd></button>
+          <button data-cmd="mirror">좌우 반전<kbd>X</kbd></button>
+          <button data-cmd="props">속성 편집<kbd>E</kbd></button>
+          <button data-cmd="annotate">부품 번호 재정렬</button>
+        </div>
+      </div>
+      <div class="menu" data-menu="view"><button>보기</button>
+        <div class="dropdown">
+          <button data-cmd="zoomFit">전체 보기<kbd>Home</kbd></button>
+          <button data-cmd="zoomIn">확대<kbd>+</kbd></button>
+          <button data-cmd="zoomOut">축소<kbd>-</kbd></button>
+          <hr>
+          <button data-cmd="toggleGrid">그리드 표시 전환</button>
+          <button data-cmd="toggleNetColors">시뮬레이션 네트 색상 표시 전환</button>
+          <button data-cmd="toggleLeft">왼쪽 패널 전환</button>
+          <button data-cmd="toggleRight">오른쪽 패널 전환</button>
+        </div>
+      </div>
+      <div class="menu" data-menu="examples"><button>예제</button>
+        <div class="dropdown" id="examplesMenu"></div>
+      </div>
+      <div class="menu" data-menu="help"><button>도움말</button>
+        <div class="dropdown">
+          <button data-cmd="help">사용법 / 단축키</button>
+          <button data-cmd="compilerSetup">WinAVR 컴파일러 설정…</button>
+          <button data-cmd="about">samMegaSim 정보</button>
+        </div>
+      </div>
+    </nav>
+    <div class="toolbar">
+      <div class="tgroup">
+        <button class="tb" data-cmd="new" title="새 프로젝트"><i class="ic ic-new"></i></button>
+        <button class="tb" data-cmd="open" title="열기"><i class="ic ic-open"></i></button>
+        <button class="tb" data-cmd="save" title="저장"><i class="ic ic-save"></i></button>
+      </div>
+      <div class="tgroup">
+        <button class="tb" data-cmd="undo" title="실행 취소 (Ctrl+Z)"><i class="ic ic-undo"></i></button>
+        <button class="tb" data-cmd="redo" title="다시 실행 (Ctrl+Y)"><i class="ic ic-redo"></i></button>
+      </div>
+      <div class="tgroup" id="modeTools">
+        <button class="tb mode active" data-mode="select" title="선택 (Esc)"><i class="ic ic-select"></i></button>
+        <button class="tb mode" data-mode="wire" title="와이어 그리기 (W)"><i class="ic ic-wire"></i></button>
+        <button class="tb" data-cmd="placeLabel" title="네트 라벨 (L)"><i class="ic ic-label"></i></button>
+        <button class="tb" data-cmd="placeVcc" title="VCC 전원 (P)"><i class="ic ic-vcc"></i></button>
+        <button class="tb" data-cmd="placeGnd" title="GND (G)"><i class="ic ic-gnd"></i></button>
+      </div>
+      <div class="tgroup">
+        <button class="tb" data-cmd="rotate" title="회전 (R)"><i class="ic ic-rotate"></i></button>
+        <button class="tb" data-cmd="mirror" title="반전 (X)"><i class="ic ic-mirror"></i></button>
+        <button class="tb" data-cmd="delete" title="삭제 (Del)"><i class="ic ic-delete"></i></button>
+      </div>
+      <div class="tgroup">
+        <button class="tb" data-cmd="zoomIn" title="확대"><i class="ic ic-zoomin"></i></button>
+        <button class="tb" data-cmd="zoomOut" title="축소"><i class="ic ic-zoomout"></i></button>
+        <button class="tb" data-cmd="zoomFit" title="전체 보기 (Home)"><i class="ic ic-fit"></i></button>
+      </div>
+      <div class="tgroup sim-group">
+        <button class="tb wide build" data-cmd="build" title="컴파일 (F7)"><i class="ic ic-build"></i><span>빌드</span></button>
+        <button class="tb wide run" data-cmd="run" title="시뮬레이션 실행 (F5)"><i class="ic ic-play"></i><span>실행</span></button>
+        <button class="tb" data-cmd="pause" title="일시정지 (F6)"><i class="ic ic-pause"></i></button>
+        <button class="tb" data-cmd="step" title="1ms 진행 (F10)"><i class="ic ic-step"></i></button>
+        <button class="tb stop" data-cmd="stop" title="정지 (Shift+F5)"><i class="ic ic-stop"></i></button>
+      </div>
+    </div>
+    <button id="compilerChip" class="chip" data-cmd="compilerSetup" title="WinAVR 컴파일러 브리지 상태"><span class="dot"></span><span class="txt">컴파일러 확인 중…</span></button>
+  </header>
+
+  <!-- ======================= Main ======================= -->
+  <main id="main">
+    <aside id="left" class="panel">
+      <div class="panel-head">
+        <div class="ptabs"><button class="ptab active" data-ltab="parts">부품 라이브러리</button><button class="ptab" data-ltab="project">프로젝트</button></div>
+      </div>
+      <div class="ltab-body" data-ltab-body="parts">
+        <div class="search"><input id="partSearch" type="search" placeholder="부품 검색 (예: LED, 74HC595, LCD)"></div>
+        <div id="partTree" class="tree"></div>
+        <div id="partPreview" class="preview">
+          <svg id="previewSvg" viewBox="-60 -60 120 120"></svg>
+          <div class="pv-info"><div class="pv-name"></div><div class="pv-desc"></div></div>
+        </div>
+      </div>
+      <div class="ltab-body hidden" data-ltab-body="project">
+        <div id="projectInfo" class="proj"></div>
+      </div>
+    </aside>
+    <div class="splitter" data-split="left"></div>
+
+    <section id="center">
+      <div class="ctabs" id="centerTabs"></div>
+      <div id="schematicView" class="cview">
+        <svg id="sheet" xmlns="http://www.w3.org/2000/svg"></svg>
+        <div id="simBanner" class="sim-banner hidden"><span class="pulse"></span>시뮬레이션 실행 중 — 편집 잠금 (부품 클릭으로 조작)</div>
+        <div id="hint" class="hint"></div>
+      </div>
+      <div id="codeView" class="cview hidden">
+        <div class="code-toolbar">
+          <span class="ct-label">대상 MCU</span><select id="buildTarget"></select>
+          <span class="ct-label">최적화</span>
+          <select id="buildOpt"><option value="-Os">-Os (크기)</option><option value="-O1">-O1</option><option value="-O2">-O2</option><option value="-O0">-O0 (디버그)</option></select>
+          <label class="ct-check"><input type="checkbox" id="buildPrintfFlt"> printf float</label>
+          <span class="flex"></span>
+          <button class="btn" data-cmd="newFile">＋ 파일 추가</button>
+          <button class="btn" data-cmd="renameFile">이름 변경</button>
+          <button class="btn danger" data-cmd="deleteFile">파일 삭제</button>
+          <button class="btn primary" data-cmd="build">▶ 빌드 (F7)</button>
+        </div>
+        <div id="codeHost"></div>
+      </div>
+    </section>
+
+    <div class="splitter" data-split="right"></div>
+    <aside id="right" class="panel">
+      <div class="simcard">
+        <div class="sc-row">
+          <span id="simState" class="state stopped">정지됨</span>
+          <span class="flex"></span>
+          <button id="soundBtn" class="icon-btn" title="소리 켜기/끄기">🔊</button>
+          <select id="simSpeed" title="시뮬레이션 속도">
+            <option value="0.01">×0.01</option><option value="0.1">×0.1</option><option value="0.25">×0.25</option>
+            <option value="0.5">×0.5</option><option value="1" selected>×1 (실시간)</option><option value="2">×2</option><option value="5">×5</option><option value="100">최대</option>
+          </select>
+        </div>
+        <div class="sc-grid">
+          <div><label>시뮬레이션 시간</label><b id="simTime">0.000000 s</b></div>
+          <div><label>실시간 대비</label><b id="simSpeedPct">—</b></div>
+          <div><label>회로 해석 횟수</label><b id="simSolves">0</b></div>
+          <div><label>MCU</label><b id="simMcuInfo">—</b></div>
+        </div>
+      </div>
+      <div class="panel-head">
+        <div class="ptabs" id="rightTabs">
+          <button class="ptab active" data-rtab="scope">오실로스코프</button>
+          <button class="ptab" data-rtab="terminal">터미널</button>
+          <button class="ptab" data-rtab="logic">로직</button>
+          <button class="ptab" data-rtab="mcu">MCU</button>
+          <button class="ptab" data-rtab="output">출력<span id="outBadge" class="badge hidden"></span></button>
+        </div>
+      </div>
+      <div class="rtab-body" data-rtab-body="scope" id="scopePanel"></div>
+      <div class="rtab-body hidden" data-rtab-body="terminal" id="terminalPanel"></div>
+      <div class="rtab-body hidden" data-rtab-body="logic" id="logicPanel"></div>
+      <div class="rtab-body hidden" data-rtab-body="mcu" id="mcuPanel"></div>
+      <div class="rtab-body hidden" data-rtab-body="output" id="outputPanel"><div id="outputLog" class="log"></div></div>
+    </aside>
+  </main>
+
+  <footer id="statusbar">
+    <span id="sbMode">선택</span>
+    <span id="sbCoord">X 0 Y 0</span>
+    <span id="sbZoom">100%</span>
+    <span id="sbSel"></span>
+    <span class="flex"></span>
+    <span id="sbDoc"></span>
+    <span id="sbSim"></span>
+  </footer>
+</div>
+
+<div id="modalRoot"></div>
+<div id="toastRoot"></div>
+<input type="file" id="fileInput" hidden>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/clike/clike.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/selection/active-line.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/dialog/dialog.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/search/searchcursor.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/search/search.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/comment/comment.min.js"></script>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

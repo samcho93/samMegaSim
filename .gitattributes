@@ -1,0 +1,3 @@
+# Served as-is by GitHub Pages: keep CRLF for the Windows launcher
+*.cmd -text
+*.bat -text
