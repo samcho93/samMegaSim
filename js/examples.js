@@ -147,14 +147,14 @@ int main(void)
       b.gnd([s2[0] + 20, s2[1]], 20);
       const pb0 = b.mpin(m, 'PB0');
       ledRight(b, pb0, 'green', '330', 60);
-      const pb1 = b.mpin(m, 'PB1');
-      ledRight(b, pb1, 'yellow', '330', 60);
+      const pb5 = b.mpin(m, 'PB5');
+      ledRight(b, pb5, 'yellow', '330', 60);
       return b.done();
     },
     code: `/*
  * 버튼 + 외부 인터럽트 INT0 - ATmega328P
  * PD2(INT0) 버튼을 누르면(하강 에지) PB0 LED 토글
- * PB1 LED는 메인 루프에서 계속 점멸합니다.
+ * PB5 LED는 메인 루프에서 계속 점멸합니다.
  */
 #include <avr/io.h>
 #include <avr/interrupt.h>
@@ -167,7 +167,7 @@ ISR(INT0_vect)
 
 int main(void)
 {
-    DDRB |= (1 << PB0) | (1 << PB1);
+    DDRB |= (1 << PB0) | (1 << PB5);
     PORTD |= (1 << PD2);            // 내부 풀업 저항 사용
 
     EICRA = (1 << ISC01);            // INT0 하강 에지
@@ -175,7 +175,7 @@ int main(void)
     sei();
 
     while (1) {
-        PORTB ^= (1 << PB1);
+        PORTB ^= (1 << PB5);
         _delay_ms(250);
     }
 }
@@ -661,8 +661,16 @@ int main(void)
       const DEV = await devices();
       const b = new Builder();
       const m = mcuWithPower(b, DEV, 'atmega328p', 450, 600);
+      // speed button on PD2 (internal pull-up)
+      const pd2 = b.mpin(m, 'PD2');
+      const sw = b.add('button', pd2[0] + 100, pd2[1]);
+      b.wire(pd2, b.pin(sw, '1'));
+      const s2 = b.pin(sw, '2');
+      b.wire(s2, [s2[0] + 20, s2[1]]);
+      b.gnd([s2[0] + 20, s2[1]], 20);
+      // PWM (OC0A = PD6) -> base resistor -> NPN low-side switch
       const pd6 = b.mpin(m, 'PD6');
-      const rb = b.add('resistor', pd6[0] + 90, pd6[1], { value: '1k' }, { rot: 1 });
+      const rb = b.add('resistor', pd6[0] + 250, pd6[1], { value: '1k' }, { rot: 1 });
       b.wire(pd6, b.pin(rb, '2'));
       const q = b.add('npn', b.pin(rb, '1')[0] + 20, pd6[1], { beta: '150' });
       b.wire(b.pin(rb, '1'), b.pin(q, 'B'));
@@ -670,19 +678,15 @@ int main(void)
       const c = b.pin(q, 'C');
       const mot = b.add('motor', c[0], c[1] - 60, { r: '20', rpm: '300' });
       b.wire(c, b.pin(mot, '-'));
+      // flyback diode across the motor
       const d = b.add('diode', c[0] + 60, c[1] - 60, {}, { rot: 3 });
       b.link(b.pin(mot, '-'), b.pin(d, 'A'), 'h');
       const top = b.pin(mot, '+');
       b.link(top, b.pin(d, 'K'), 'h');
       b.add('vcc', top[0], top[1]);
-      const pd2 = b.mpin(m, 'PD2');
-      const sw = b.add('button', pd2[0] + 90, pd2[1] + 60);
-      b.link(pd2, b.pin(sw, '1'), 'v');
-      const s2 = b.pin(sw, '2');
-      b.wire(s2, [s2[0] + 20, s2[1]]);
-      b.gnd([s2[0] + 20, s2[1]], 20);
-      const osc = b.scope(c[0] + 250, c[1] - 30, 0.0005);
-      b.link(c, b.pin(osc, 'A'), 'v');
+      const osc = b.scope(c[0] + 260, c[1] + 10, 0.0005);
+      b.link(c, [c[0] + 180, c[1]], 'h');
+      b.wire([c[0] + 180, c[1]], [c[0] + 180, b.pin(osc, 'A')[1]], b.pin(osc, 'A'));
       return b.done();
     },
     code: `/*
