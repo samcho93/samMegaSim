@@ -717,7 +717,7 @@ class App {
       toast(`예제: <b>${esc(ex.name)}</b><br>${esc(ex.desc)}<br>▶ 실행(F5)을 눌러 시뮬레이션하세요.`, 'ok', 5000);
       this.log(`예제 열기: ${ex.name} — ${ex.desc}`, 'info');
     }
-    this.markDirty();
+    this._autosave();
   }
 
   // ---------------------------------------------------------------------------
@@ -735,7 +735,11 @@ class App {
     const txt = chip.querySelector('.txt');
     if (!st?.connected) { chip.classList.add('err'); txt.textContent = 'WinAVR 브리지 미연결'; }
     else if (!st.winavr?.found) { chip.classList.add('warn'); txt.textContent = 'WinAVR 미설치'; }
-    else { chip.classList.add('ok'); txt.textContent = `avr-gcc ${st.winavr.version || ''}`.trim(); }
+    else {
+      chip.classList.add('ok');
+      const v = /\(([^)]+)\)\s*([\d.]+)/.exec(st.winavr.version || '');
+      txt.textContent = v ? `${v[1]} · gcc ${v[2]}` : 'avr-gcc 연결됨';
+    }
   }
 
   async build() {

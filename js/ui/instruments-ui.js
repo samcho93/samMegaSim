@@ -225,12 +225,10 @@ export class InstrumentsUI {
     if (!tr || !tr.len) return null;
     const { level, edge } = cfg.trig;
     let j = tr.find(tMax);
-    const tMin = tMax - Math.max(span * 20, 0.05);
     let guard = 0;
     while (j > 0 && guard++ < 200000) {
       const k = tr.at(j), kp = tr.at(j - 1);
       const t = tr.t[k];
-      if (t < tMin) break;
       const a = tr.v[kp], b = tr.v[k];
       if (edge === 'rise' ? a < level && b >= level : a > level && b <= level) return t;
       j--;
@@ -394,10 +392,10 @@ export class InstrumentsUI {
         if (cfg.trig >= 0) {
           const tr = inst.traces[cfg.trig];
           let j = tr.find(sim.time - span / 2);
-          while (j > 0) {
+          let guard = 0;
+          while (j > 0 && guard++ < 100000) {
             const a = tr.v[tr.at(j - 1)], b = tr.v[tr.at(j)];
             if (cfg.edge === 'rise' ? a < 0.5 && b > 0.5 : a > 0.5 && b < 0.5) { t0 = tr.t[tr.at(j)] - span / 2; break; }
-            if (tr.t[tr.at(j)] < sim.time - span * 20) break;
             j--;
           }
         }

@@ -41,7 +41,11 @@ for (const ex of EXAMPLES) {
   for (const inst of sim.instruments) if (inst.kind === 'terminal') inst.listeners.add((it) => { serial += String.fromCharCode(it.b); });
   const t0 = Date.now();
   let dur = 0;
-  for (let f = 1; f <= 60; f++) { sim.runUntil(f / 60, 1e9); sim.frame(1 / 60); dur = f / 60; }
+  for (let f = 1; f <= 60; f++) {
+    sim.runUntil(f / 60, 1e9); sim.frame(1 / 60); dur = f / 60;
+    // type into every virtual terminal once the firmware is up
+    if (f === 30) for (const inst of sim.instruments) if (inst.kind === 'terminal') inst.send([...Buffer.from('hi sim'), 13]);
+  }
   const ms = Date.now() - t0;
   const extra = [];
   for (const [id, inst] of sim.instances) {
@@ -56,6 +60,7 @@ for (const ex of EXAMPLES) {
     if (inst.el?.bright !== undefined && inst.el.bright > 0.05) extra.push(`${p.ref} on`);
     if (inst.angle !== undefined && p.type === 'servo') extra.push(`${p.ref} ${inst.angle.toFixed(0)}deg`);
     if (inst.rpm !== undefined) extra.push(`${p.ref} ${inst.rpm.toFixed(0)}rpm`);
+    if (inst.leds) extra.push(`${p.ref} lit=${inst.leds.filter((l) => l.bright > 0.05).length}/${inst.leds.length}`);
     if (inst.st?.latch !== undefined) extra.push(`${p.ref} latch=${inst.st.latch}`);
   }
   console.log(`[${ex.id}] ${hex.length}B hex, sim ${dur.toFixed(2)}s in ${ms}ms, solves=${sim.circuit.solveCount}`,

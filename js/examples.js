@@ -53,6 +53,16 @@ class Builder {
   }
   /** Power symbol at a point, rotated (rot 1/3 = pointing right/left for GND/VCC) */
   power(type, at, rot = 0) { return this.add(type, at[0], at[1], {}, { rot }); }
+  /** Oscilloscope with preset time/div (seconds) */
+  scope(x, y, tdiv, level = 2.5) {
+    const osc = this.add('scope', x, y);
+    osc.props.cfg = {
+      tdiv, run: true,
+      ch: [{ on: true, vdiv: 2, pos: 1 }, { on: true, vdiv: 2, pos: -1 }, { on: true, vdiv: 2, pos: -3 }, { on: true, vdiv: 2, pos: -4 }],
+      trig: { src: 0, edge: 'rise', level, mode: 'auto' },
+    };
+    return osc;
+  }
   mcu(device, x, y, clock = '16MHz') {
     const m = this.add('mcu', x, y, { device, clock });
     m._dev = null;
@@ -100,7 +110,7 @@ export const EXAMPLES = [
       const m = mcuWithPower(b, DEV, 'atmega328p', 600, 600);
       const pb5 = b.mpin(m, 'PB5');
       ledRight(b, pb5, 'red', '330', 60);
-      const osc = b.add('scope', 1250, 330);
+      const osc = b.scope(1250, 330, 0.2);
       b.linkX(pb5, b.pin(osc, 'A'), pb5[0] + 50);
       return b.done();
     },
@@ -180,7 +190,7 @@ int main(void)
       const m = mcuWithPower(b, DEV, 'atmega328p', 600, 600);
       const pd6 = b.mpin(m, 'PD6');
       ledRight(b, pd6, 'blue', '220', 60);
-      const osc = b.add('scope', 1250, 780);
+      const osc = b.scope(1250, 780, 0.0005);
       b.linkX(pd6, b.pin(osc, 'A'), pd6[0] + 40);
       return b.done();
     },
@@ -292,29 +302,21 @@ int main(void)
       const DEV = await devices();
       const b = new Builder();
       const m = mcuWithPower(b, DEV, 'atmega328p', 500, 650);
-      const lcd = b.add('lcd', 1180, 520, { size: '16x2', color: 'green' });
-      const map = { RS: 'PD2', E: 'PD3', D4: 'PD4', D5: 'PD5', D6: 'PD6', D7: 'PD7' };
-      for (const [lp, mp] of Object.entries(map)) {
-        b.label(b.mpin(m, mp), 'LCD_' + lp, 'R', 30);
-        b.label(b.pin(lcd, lp), 'LCD_' + lp, 'D', 30);
-      }
-      const vss = b.pin(lcd, 'VSS');
-      b.gnd(vss, 40);
-      const rw = b.pin(lcd, 'RW');
-      b.wire(rw, [rw[0], rw[1] + 40]);
-      b.gnd([rw[0], rw[1] + 40]);
+      const pd2 = b.mpin(m, 'PD2');
+      // LCD above-right; data lines as nested L-shaped wires (no crossings)
+      const lcd = b.add('lcd', pd2[0] + 250, pd2[1] - 130, { size: '16x2', color: 'green' });
+      const map = [['PD2', 'RS'], ['PD3', 'E'], ['PD4', 'D4'], ['PD5', 'D5'], ['PD6', 'D6'], ['PD7', 'D7']];
+      for (const [mp, lp] of map) b.link(b.mpin(m, mp), b.pin(lcd, lp), 'h');
+      b.gnd(b.pin(lcd, 'VSS'), 10);
       const vdd = b.pin(lcd, 'VDD');
       b.wire(vdd, [vdd[0], vdd[1] + 30]);
       b.power('vcc', [vdd[0], vdd[1] + 30], 2);
-      const v0 = b.pin(lcd, 'V0');
-      b.gnd([v0[0], v0[1] + 40]);
-      b.wire(v0, [v0[0], v0[1] + 40]);
+      b.gnd(b.pin(lcd, 'V0'), 50);
+      b.gnd(b.pin(lcd, 'RW'), 10);
       const a = b.pin(lcd, 'A'), k = b.pin(lcd, 'K');
-      const rbl = b.add('resistor', a[0], a[1] + 60, { value: '100' });
-      b.wire(a, b.pin(rbl, '1'));
-      b.add('vcc', b.pin(rbl, '2')[0], b.pin(rbl, '2')[1], {}, { rot: 2 });
-      b.wire(k, [k[0], k[1] + 40]);
-      b.gnd([k[0], k[1] + 40]);
+      const rbl = b.add('resistor', a[0], a[1] + 30, { value: '100' });
+      b.power('vcc', b.pin(rbl, '2'), 2);
+      b.gnd(k, 70);
       return b.done();
     },
     code: `/*
@@ -416,15 +418,17 @@ int main(void)
       const DEV = await devices();
       const b = new Builder();
       const m = mcuWithPower(b, DEV, 'atmega328p', 500, 600);
-      const seg = b.add('seg7', 1150, 560, { common: 'cathode', color: 'red' });
       const segs = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'dp'];
-      segs.forEach((s, i) => {
+      const pd0 = b.mpin(m, 'PD0');
+      // PD0..PD7 -> 8x resistor array -> segment inputs (pins 10 units apart)
+      const rn = b.add('resarray', pd0[0] + 170, pd0[1] - 40, { value: '220' });
+      segs.forEach((sg, i) => {
         const from = b.mpin(m, 'PD' + i);
-        const R = b.add('resistor', from[0] + 110, from[1], { value: '220' }, { rot: 1 });
-        b.wire(from, b.pin(R, '2'));
-        b.label(b.pin(R, '1'), 'SEG_' + s, 'R', 20);
-        b.label(b.pin(seg, s), 'SEG_' + s, 'L', 20);
+        const to = b.pin(rn, String(i + 1));
+        b.wire(from, [pd0[0] + 30 + i * 10, from[1]], [pd0[0] + 30 + i * 10, to[1]], to);
       });
+      const seg = b.add('seg7', b.pin(rn, '16')[0] + 80, b.pin(rn, '16')[1] + 40, { common: 'cathode', color: 'red' });
+      segs.forEach((sg, i) => b.wire(b.pin(rn, String(16 - i)), b.pin(seg, sg)));
       const com = b.pin(seg, 'COM');
       b.wire(com, [com[0] + 20, com[1]]);
       b.gnd([com[0] + 20, com[1]], 20);
@@ -486,18 +490,19 @@ int main(void)
 #include <avr/interrupt.h>
 #include <util/delay.h>
 
-volatile uint8_t rx_char, rx_flag;
-
-ISR(USART0_RX_vect)
-{
-    rx_char = UDR0;
-    rx_flag = 1;
-}
-
 static void uart_tx(uint8_t c)
 {
     while (!(UCSR0A & (1 << UDRE0)));
     UDR0 = c;
+}
+
+/* 수신 인터럽트: 받은 문자를 대문자로 바로 되돌려 보냄 */
+ISR(USART0_RX_vect)
+{
+    uint8_t c = UDR0;
+    if (c >= 'a' && c <= 'z') c -= 32;
+    uart_tx(c);
+    if (c == '\\r') uart_tx('\\n');
 }
 
 static void uart_puts(const char *s)
@@ -522,13 +527,6 @@ int main(void)
         PORTA = (1 << pos);
         pos += dir;
         if (pos == 7 || pos == 0) dir = -dir;
-        if (rx_flag) {
-            rx_flag = 0;
-            uint8_t c = rx_char;
-            if (c >= 'a' && c <= 'z') c -= 32;
-            uart_tx(c);
-            if (c == '\\r') uart_tx('\\n');
-        }
         _delay_ms(100);
     }
 }
@@ -554,7 +552,7 @@ int main(void)
       b.link(pc0, b.pin(pot, 'W'), 'h');
       b.vcc(b.pin(pot, '1'), 10);
       b.gnd(b.pin(pot, '2'), 10);
-      const osc = b.add('scope', pb1[0] + 380, pb1[1] - 150);
+      const osc = b.scope(pb1[0] + 380, pb1[1] - 150, 0.005);
       b.linkX(pb1, b.pin(osc, 'A'), pb1[0] + 60);
       return b.done();
     },
@@ -605,10 +603,19 @@ int main(void)
       const oe = b.pin(u, 'OE');
       b.wire(oe, [oe[0] - 20, oe[1]], [oe[0] - 20, oe[1] + 20]);
       b.gnd([oe[0] - 20, oe[1] + 20]);
+      // Q0..Q7 -> resistor array -> LED bar graph
+      const q0 = b.pin(u, 'Q0');
+      const rn = b.add('resarray', q0[0] + 60, q0[1] + 40, { value: '330' });
+      const bar = b.add('bargraph', b.pin(rn, '16')[0] + 60, b.pin(rn, '16')[1] + 40, { color: 'red' });
       for (let i = 0; i < 8; i++) {
-        const q = b.pin(u, 'Q' + i);
-        ledRight(b, q, i % 2 ? 'green' : 'red', '330', 30);
+        b.wire(b.pin(u, 'Q' + i), b.pin(rn, String(i + 1)));
+        b.wire(b.pin(rn, String(16 - i)), b.pin(bar, 'A' + (i + 1)));
+        const k = b.pin(bar, 'K' + (i + 1));
+        b.wire(k, [k[0] + 20, k[1]]);
       }
+      const k1 = b.pin(bar, 'K1'), k8 = b.pin(bar, 'K8');
+      b.wire([k1[0] + 20, k1[1]], [k8[0] + 20, k8[1]], [k8[0] + 20, k8[1] + 40]);
+      b.gnd([k8[0] + 20, k8[1] + 40]);
       const la = b.add('logic', 1000, 850);
       b.label(b.pin(la, 'D0'), 'SCK', 'L', 30);
       b.label(b.pin(la, 'D1'), 'MOSI', 'L', 30);
@@ -674,7 +681,7 @@ int main(void)
       const s2 = b.pin(sw, '2');
       b.wire(s2, [s2[0] + 20, s2[1]]);
       b.gnd([s2[0] + 20, s2[1]], 20);
-      const osc = b.add('scope', c[0] + 250, c[1] - 30);
+      const osc = b.scope(c[0] + 250, c[1] - 30, 0.0005);
       b.link(c, b.pin(osc, 'A'), 'v');
       return b.done();
     },

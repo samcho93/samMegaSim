@@ -158,6 +158,28 @@ register({
 });
 
 register({
+  type: 'resarray', name: 'Resistor Array (8)', category: C.R, prefix: 'RN',
+  desc: '독립 저항 8개 배열 (1~8 ↔ 16~9), LED/7세그먼트 전류 제한용',
+  props: [{ key: 'value', label: '저항값 (Ω)', default: '330' }],
+  symbol() {
+    const s = new Sym();
+    s.rect(-14, -45, 28, 90, 'sb');
+    for (let i = 0; i < 8; i++) {
+      const y = -40 + i * 10;
+      s.pin(String(i + 1), -30, y, 'R', 16, { num: i + 1, showNum: true });
+      s.pin(String(16 - i), 30, y, 'L', 16, { num: 16 - i, showNum: true });
+      s.rect(-9, y - 2.5, 18, 5, 'sb');
+      s.line(-14, y, -9, y).line(9, y, 14, y);
+    }
+    return s.ref(-14, -52).val(4, -52).build();
+  },
+  sim(part, n) {
+    const R = parseSI(part.props.value, 330);
+    return { elements: Array.from({ length: 8 }, (_, i) => resistor(n(String(i + 1)), n(String(16 - i)), R)) };
+  },
+});
+
+register({
   type: 'capacitor', name: 'Capacitor', category: C.R, prefix: 'C',
   desc: '커패시터 (과도응답 모델)',
   props: [{ key: 'value', label: '용량 (F)', default: '100n' }],
